@@ -1,9 +1,9 @@
 import { Router } from 'express'
-import UserController from './controllers/AccountController'
+import AccountController from './controllers/AccountController'
 
 const routes = Router()
 
-routes.get('/account', UserController.index)
-// routes.post('/account', UserController.store)
+routes.get('/account', AccountController.getHistoric)
+routes.post('/account/deposit', AccountController.deposit)
 
 export default routes

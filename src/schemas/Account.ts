@@ -1,11 +1,11 @@
 import { Schema, model, Document } from 'mongoose'
 
-interface CashMoveInterface extends Document {
+interface CashMoveInterface {
     timestamp: Date,
     value: number
 }
 
-interface PaymentInfoInterface extends CashMoveInterface, Document {
+interface PaymentInfoInterface extends CashMoveInterface {
     idPayment: { type: Schema.Types.ObjectId, ref: 'Payment' }
 }
 
