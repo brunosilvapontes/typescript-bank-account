@@ -1,12 +1,12 @@
 import { Schema, model, Document } from 'mongoose'
 
 interface CashMoveInterface {
-    timestamp: Date,
-    value: number
+  timestamp: Date,
+  value: number
 }
 
 interface PaymentInterface extends CashMoveInterface {
-    serviceResponse: string
+  serviceResponse: string
 }
 
 interface AccountInterface extends Document {
