@@ -6,7 +6,9 @@ import * as dotenv from 'dotenv'
 // Load environment variables
 dotenv.config()
 
+// This solution is using a predefined account
 const ACCOUNT_ID = '5f0d26f2b027fd046c594ab1'
+
 const PAYMENT_LOCK = 'PAYMENT_LOCK'
 const redis = new Tedis({
   port: 13657,
@@ -18,6 +20,10 @@ class AccountController {
   public getHistoric = async (req: Request, res: Response): Promise<Response> => {
     try {
       const account = await Account.findById(ACCOUNT_ID)
+      if (!account) {
+        const message = 'Conta não encontrada'
+        return res.status(404).json({ message })
+      }
 
       // Get all transactions and label them as "ENTRADA" or "SAÍDA"
       const historic = { balance: account.balance, transactions: [] }
@@ -54,8 +60,15 @@ class AccountController {
 
   public deposit = async (req: Request, res: Response): Promise<Response> => {
     try {
+      let message = ''
+      const account = await Account.findById(ACCOUNT_ID)
+      if (!account) {
+        message = 'Conta não encontrada'
+        return res.status(404).json({ message })
+      }
+
       const value = Number(req.query.value)
-      const message = this.getInputValueError(value)
+      message = this.getInputValueError(value)
       if (message) return res.status(400).json({ message })
 
       // Append a new deposit and update balance
@@ -86,12 +99,17 @@ class AccountController {
 
   public withdraw = async (req: Request, res: Response): Promise<Response> => {
     try {
+      let message = ''
       const value = Number(req.query.value)
-      let message = this.getInputValueError(value)
+      message = this.getInputValueError(value)
       if (message) return res.status(400).json({ message })
 
       // Check if there is enough balance
       const account = await Account.findById(ACCOUNT_ID, 'balance')
+      if (!account) {
+        message = 'Conta não encontrada'
+        return res.status(404).json({ message })
+      }
       if (account.balance < value) {
         message = 'Seu saldo não é suficiente para realizar o resgate'
         return res.status(400).json({ message })
