@@ -5,13 +5,13 @@ interface CashMoveInterface {
     value: number
 }
 
-interface PaymentInfoInterface extends CashMoveInterface {
-    idPayment: { type: Schema.Types.ObjectId, ref: 'Payment' }
+interface PaymentInterface extends CashMoveInterface {
+    serviceResponse: string
 }
 
 interface AccountInterface extends Document {
   balance: number,
-  payments?: Array<PaymentInfoInterface>,
+  payments?: Array<PaymentInterface>,
   withdrawals?: Array<CashMoveInterface>,
   deposits?: Array<CashMoveInterface>
 }
@@ -19,7 +19,7 @@ interface AccountInterface extends Document {
 const AccountSchema = new Schema({
   balance: { type: Number, Default: 0 },
   payments: [{
-    idPayment: { type: Schema.Types.ObjectId, ref: 'Payment' },
+    serviceResponse: { type: String },
     timestamp: { type: Date },
     value: { type: Number }
   }],
