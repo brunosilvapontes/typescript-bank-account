@@ -16,9 +16,40 @@ const redis = new Tedis({
 
 class AccountController {
   public getHistoric = async (req: Request, res: Response): Promise<Response> => {
-    const accounts = await Account.findById(ACCOUNT_ID)
-    console.log(accounts)
-    return res.json(accounts)
+    try {
+      const account = await Account.findById(ACCOUNT_ID)
+
+      // Get all transactions and label them as "ENTRADA" or "SAÍDA"
+      const historic = { balance: account.balance, transactions: [] }
+      account.payments.forEach(payment => {
+        historic.transactions.push({
+          type: 'SAÍDA',
+          timestamp: payment.timestamp,
+          value: payment.value
+        })
+      })
+      account.deposits.forEach(deposit => {
+        historic.transactions.push({
+          type: 'ENTRADA',
+          timestamp: deposit.timestamp,
+          value: deposit.value
+        })
+      })
+      account.withdrawals.forEach(withdrawal => {
+        historic.transactions.push({
+          type: 'SAÍDA',
+          timestamp: withdrawal.timestamp,
+          value: withdrawal.value
+        })
+      })
+
+      // Sort the transactions
+      historic.transactions.sort((t1, t2) => t1.timestamp - t2.timestamp)
+
+      return res.json(historic)
+    } catch (error) {
+      return res.status(500).json({ message: error.message })
+    }
   }
 
   public deposit = async (req: Request, res: Response): Promise<Response> => {
