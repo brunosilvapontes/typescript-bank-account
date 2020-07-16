@@ -23,7 +23,10 @@ class App {
   }
 
   private database (): void {
-    mongoose.connect(process.env.DB_CONNECTION)
+    mongoose.connect(
+      process.env.DB_CONNECTION,
+      { useNewUrlParser: true, useUnifiedTopology: true }
+    )
   }
 
   private routes (): void {
