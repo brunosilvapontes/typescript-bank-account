@@ -1,34 +1,36 @@
 import { Schema, model, Document } from 'mongoose'
 
 interface CashMoveInterface {
-  timestamp: Date,
+  timestamp?: Date,
   value: number
 }
 
-interface PaymentInterface extends CashMoveInterface {
-  serviceResponse: string
+interface PaymentInfoInterface extends CashMoveInterface {
+  barcode: string,
+  businessAccountId: Schema.Types.ObjectId
 }
 
 interface AccountInterface extends Document {
   balance: number,
-  payments?: Array<PaymentInterface>,
+  payments?: Array<PaymentInfoInterface>,
   withdrawals?: Array<CashMoveInterface>,
   deposits?: Array<CashMoveInterface>
 }
 
 const AccountSchema = new Schema({
-  balance: { type: Number, Default: 0 },
+  balance: { type: Number, default: 0 },
   payments: [{
-    serviceResponse: { type: String },
-    timestamp: { type: Date },
+    barcode: { type: String },
+    timestamp: { type: Date, default: Date.now },
+    businessAccountId: { type: Schema.Types.ObjectId, ref: 'BusinessAccount' },
     value: { type: Number }
   }],
   withdrawals: [{
-    timestamp: { type: Date },
+    timestamp: { type: Date, default: Date.now },
     value: { type: Number }
   }],
   deposits: [{
-    timestamp: { type: Date },
+    timestamp: { type: Date, default: Date.now },
     value: { type: Number }
   }]
 }, {

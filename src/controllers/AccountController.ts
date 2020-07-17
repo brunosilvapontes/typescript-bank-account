@@ -2,12 +2,17 @@ import { Request, Response } from 'express'
 import Account from '../schemas/Account'
 import { Tedis } from 'tedis'
 import * as dotenv from 'dotenv'
+import getInputValueError from '../common'
+import BusinessAccount from '../schemas/BusinessAccount'
+import PaymentController from './PaymentController'
 
 // Load environment variables
 dotenv.config()
 
-// This solution is using a predefined account
+// This solution uses predefined accounts
 const ACCOUNT_ID = '5f0d26f2b027fd046c594ab1'
+const BUSINESS_ACCOUNT_ID = '5f11222cdb8f314f3d2e6efb'
+const BLOCKING_MSG = 'Sua conta tem um pagamento em andamento, tente novamente'
 
 const PAYMENT_LOCK = 'PAYMENT_LOCK'
 const redis = new Tedis({
@@ -58,6 +63,50 @@ class AccountController {
     }
   }
 
+  public payment = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      // Check if a payment is blocking withdrawals
+      const isBlocked = await this.isAccountBlocked()
+      if (isBlocked) return res.status(409).json({ message: BLOCKING_MSG })
+
+      // Check if accounts exists
+      let message = ''
+      const operationAccounts = await Promise.all([
+        Account.findById(ACCOUNT_ID),
+        BusinessAccount.findById(BUSINESS_ACCOUNT_ID)
+      ])
+      if (!operationAccounts[0] || !operationAccounts[1]) {
+        message = 'Conta(s) não encontrada(s)'
+        return res.status(404).json({ message })
+      }
+
+      // Check query string input
+      const value = Number(req.query.value)
+      const barcode = String(req.query.barcode)
+      if (!value || !barcode) {
+        message = 'Valor e/ou código de barras não foi passado'
+        return res.status(400).json({ message })
+      }
+
+      // Check if there is enough balance
+      if (operationAccounts[0].balance < value) {
+        message = 'Saldo não é suficiente para realizar o pagamento'
+        return res.status(400).json({ message })
+      }
+
+      // Block withdrawing money from the account
+      await redis.setex(PAYMENT_LOCK, 10, 'blocked')
+
+      const paid = await PaymentController.pay(value, ACCOUNT_ID, BUSINESS_ACCOUNT_ID, barcode)
+      if (paid.success) return res.sendStatus(200)
+      return res.status(500).json({ message: paid.errorMessage })
+    } catch (error) {
+      return res.status(500).json({ message: error.message })
+    } finally {
+      redis.del(PAYMENT_LOCK)
+    }
+  }
+
   public deposit = async (req: Request, res: Response): Promise<Response> => {
     try {
       let message = ''
@@ -68,14 +117,14 @@ class AccountController {
       }
 
       const value = Number(req.query.value)
-      message = this.getInputValueError(value)
+      message = getInputValueError(value)
       if (message) return res.status(400).json({ message })
 
       // Append a new deposit and update balance
       await Account.updateOne(
         { _id: ACCOUNT_ID },
         {
-          $push: { deposits: { timestamp: new Date(), value } },
+          $push: { deposits: { value } },
           $inc: { balance: value }
         }
       )
@@ -85,23 +134,27 @@ class AccountController {
     }
   }
 
-  private getInputValueError = (value: number): string => {
-    let message = ''
-    if (isNaN(value)) {
-      message = 'Valor não foi passado ou não é um número'
-    } else if (!Number.isInteger(value)) {
-      message = 'Valor deve ser passado em centavos (número inteiro)'
-    } else if (value < 1) {
-      message = 'Valor deve ser maior que 0'
+  private isAccountBlocked = async (): Promise<boolean> => {
+    // Check if a payment or a withdrawal is blocking account movements
+    let paymentBlock = await redis.get(PAYMENT_LOCK)
+    if (paymentBlock) {
+      // Try again after a few seconds
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      paymentBlock = await redis.get(PAYMENT_LOCK)
+      if (paymentBlock) return true
     }
-    return message
+    return false
   }
 
   public withdraw = async (req: Request, res: Response): Promise<Response> => {
     try {
+      // Check if a payment or another withdrawal is blocking withdrawals
+      const isBlocked = await this.isAccountBlocked()
+      if (isBlocked) return res.status(409).json({ message: BLOCKING_MSG })
+
       let message = ''
       const value = Number(req.query.value)
-      message = this.getInputValueError(value)
+      message = getInputValueError(value)
       if (message) return res.status(400).json({ message })
 
       // Check if there is enough balance
@@ -111,33 +164,26 @@ class AccountController {
         return res.status(404).json({ message })
       }
       if (account.balance < value) {
-        message = 'Seu saldo não é suficiente para realizar o resgate'
+        message = 'Saldo não é suficiente para realizar o resgate'
         return res.status(400).json({ message })
       }
 
-      // Check if a payment is blocking withdrawals
-      let paymentBlock = await redis.get(PAYMENT_LOCK)
-      if (paymentBlock) {
-        // Try again after a few seconds
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        paymentBlock = await redis.get(PAYMENT_LOCK)
-        if (paymentBlock) {
-          message = 'Sua conta tem um pagamento em andamento, tente novamente'
-          return res.status(409).json({ message })
-        }
-      }
+      // Block withdrawing money from the account
+      await redis.setex(PAYMENT_LOCK, 10, 'blocked')
 
       // Append a new withdrawal and update balance
       await Account.updateOne(
         { _id: ACCOUNT_ID },
         {
-          $push: { withdrawals: { timestamp: new Date(), value } },
+          $push: { withdrawals: { value } },
           $inc: { balance: value * -1 }
         }
       )
       return res.sendStatus(200)
     } catch (error) {
       return res.status(500).json({ message: error.message })
+    } finally {
+      redis.del(PAYMENT_LOCK)
     }
   }
 }
