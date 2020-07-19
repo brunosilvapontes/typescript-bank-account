@@ -99,7 +99,7 @@ class AccountController {
 
       const paid = await PaymentController.pay(value, ACCOUNT_ID, BUSINESS_ACCOUNT_ID, barcode)
       if (paid.success) return res.sendStatus(200)
-      return res.status(500).json({ message: paid.errorMessage })
+      return res.status(paid.status).json({ message: paid.errorMessage })
     } catch (error) {
       return res.status(500).json({ message: error.message })
     } finally {
