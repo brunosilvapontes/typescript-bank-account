@@ -14,7 +14,6 @@ const ACCOUNT_ID = '5f0d26f2b027fd046c594ab1'
 const BUSINESS_ACCOUNT_ID = '5f11222cdb8f314f3d2e6efb'
 const BLOCKING_MSG = 'Sua conta tem um pagamento em andamento, tente novamente'
 
-const PAYMENT_LOCK = 'PAYMENT_LOCK'
 const redis = new Tedis({
   port: 13657,
   host: process.env.REDIS_HOST,
@@ -95,7 +94,7 @@ class AccountController {
       }
 
       // Block withdrawing money from the account
-      await redis.setex(PAYMENT_LOCK, 10, 'blocked')
+      await redis.setex(ACCOUNT_ID, 10, 'blocked')
 
       const paid = await PaymentController.pay(value, ACCOUNT_ID, BUSINESS_ACCOUNT_ID, barcode)
       if (paid.success) return res.sendStatus(200)
@@ -103,7 +102,7 @@ class AccountController {
     } catch (error) {
       return res.status(500).json({ message: error.message })
     } finally {
-      redis.del(PAYMENT_LOCK)
+      redis.del(ACCOUNT_ID)
     }
   }
 
@@ -136,11 +135,11 @@ class AccountController {
 
   private isAccountBlocked = async (): Promise<boolean> => {
     // Check if a payment or a withdrawal is blocking account movements
-    let paymentBlock = await redis.get(PAYMENT_LOCK)
+    let paymentBlock = await redis.get(ACCOUNT_ID)
     if (paymentBlock) {
       // Try again after a few seconds
       await new Promise(resolve => setTimeout(resolve, 3000))
-      paymentBlock = await redis.get(PAYMENT_LOCK)
+      paymentBlock = await redis.get(ACCOUNT_ID)
       if (paymentBlock) return true
     }
     return false
@@ -169,7 +168,7 @@ class AccountController {
       }
 
       // Block withdrawing money from the account
-      await redis.setex(PAYMENT_LOCK, 10, 'blocked')
+      await redis.setex(ACCOUNT_ID, 10, 'blocked')
 
       // Append a new withdrawal and update balance
       await Account.updateOne(
@@ -183,9 +182,9 @@ class AccountController {
     } catch (error) {
       return res.status(500).json({ message: error.message })
     } finally {
-      redis.del(PAYMENT_LOCK)
+      redis.del(ACCOUNT_ID)
     }
   }
 }
 
-export default new AccountController()
+export = AccountController
