@@ -1,0 +1,24 @@
+version: "3"
+services:
+    frontend:
+        container_name: account_client
+        stdin_open: true
+        tty: true
+        build:
+            context: ./client
+            dockerfile: Dockerfile
+        image: brunopontes/account_client
+        ports:
+            - "3000:3000"
+        volumes:
+            - ./client:/usr/src/app
+    backend:
+        container_name: account_server
+        build:
+            context: ./server
+            dockerfile: Dockerfile
+        image: brunopontes/account_server
+        ports:
+            - "3333:3333"
+        volumes:
+            - ./server:/usr/src/app
