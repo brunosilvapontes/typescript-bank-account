@@ -109,12 +109,14 @@ class AccountController {
   public deposit = async (req: Request, res: Response): Promise<Response> => {
     try {
       let message = ''
+      // Check account existence
       const account = await Account.findById(ACCOUNT_ID)
       if (!account) {
         message = 'Conta não encontrada'
         return res.status(404).json({ message })
       }
 
+      // Validate input
       const value = Number(req.query.value)
       message = getInputValueError(value)
       if (message) return res.status(400).json({ message })

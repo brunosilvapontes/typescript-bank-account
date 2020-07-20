@@ -1,12 +1,11 @@
-import { Router } from 'express'
-import AccountController from './controllers/AccountController'
-import auth from './auth'
+const auth = require('./auth')
+const AccountController = require('./controllers/AccountController')
+const routes = require('express').Router()
+const accountControl = new AccountController()
 
-const routes = Router()
+routes.get('/account', auth.validateAPIToken, accountControl.getHistoric)
+routes.post('/account/deposit', auth.validateAPIToken, accountControl.deposit)
+routes.post('/account/withdraw', auth.validateAPIToken, accountControl.withdraw)
+routes.post('/account/pay', auth.validateAPIToken, accountControl.payment)
 
-routes.get('/account', auth.validateAPIToken, AccountController.getHistoric)
-routes.post('/account/deposit', auth.validateAPIToken, AccountController.deposit)
-routes.post('/account/withdraw', auth.validateAPIToken, AccountController.withdraw)
-routes.post('/account/payment', auth.validateAPIToken, AccountController.payment)
-
-export default routes
+module.exports = routes
